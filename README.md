@@ -1,8 +1,8 @@
 # Reliable App
 
-Minimal e-commerce demo for **Con Alma Tech** SRE service packages.
+Minimal e-commerce demo for **[Con Alma Tech](https://conalma.tech)** SRE service packages.
 
-Three FastAPI services on local **Kind**, with injectable payment faults and Prometheus `/metrics` on each API.
+Three FastAPI services on local **Kind**, with injectable payment faults and Prometheus `/metrics` on each API — enough to show the **four golden signals** and later SLOs.
 
 | Service | Local URL | Role |
 |---|---|---|
@@ -10,16 +10,20 @@ Three FastAPI services on local **Kind**, with injectable payment faults and Pro
 | `checkout-api` | http://127.0.0.1:8082 | Checkout + pay orchestration |
 | `payments-mock` | http://127.0.0.1:8083 | Mock payments + fault injection |
 
-Site: [conalma.tech](https://conalma.tech)  
-Spanish docs / canonical repo: [GitLab](https://gitlab.com/anitalmada/reliable-app) · English: [GitHub](https://github.com/anitalmada/reliable-app)
+**Who it’s for:** teams evaluating SRE demos (latency, errors, saturation) without a full production stack.
+
+**Languages:** English (this file) · [Español](README.es.md)  
+**Repos:** [GitHub](https://github.com/anitalmada/reliable-app) (EN) · [GitLab](https://gitlab.com/anitalmada/reliable-app) (ES, canonical)
+
+---
 
 ## Prerequisites
 
 - Docker (daemon running)
-- `curl` and `python3` (for smoke test)
+- `curl` and `python3` (for the smoke test)
 - `kind` and `kubectl` — installed automatically by the bootstrap script into `~/.local/bin` if missing
 
-## Bring up (Kind)
+## Bring up (~10 min)
 
 ```bash
 chmod +x scripts/bootstrap-kind.sh scripts/smoke-test.sh
@@ -27,9 +31,9 @@ chmod +x scripts/bootstrap-kind.sh scripts/smoke-test.sh
 ./scripts/smoke-test.sh
 ```
 
-OpenAPI: `/docs` on each port above.
+OpenAPI docs: `/docs` on each port above.
 
-## Happy path (manual)
+## Happy path
 
 ```bash
 # Products
@@ -45,6 +49,8 @@ curl -s -X POST http://127.0.0.1:8082/checkout/CHECKOUT_ID/pay
 ```
 
 ## Fault injection (payments-mock)
+
+Change behavior via API — no redeploy:
 
 ```bash
 # 100% 5xx on /charge
@@ -72,9 +78,13 @@ kind delete cluster --name reliable-app
 ## Layout
 
 ```text
-app/           FastAPI services
+app/           FastAPI services (catalog, checkout, payments-mock)
 infra/k8s/     Kind config + Kustomize manifests
 scripts/       bootstrap-kind.sh, smoke-test.sh
-automation/    (Phase 4)
-runbooks/      (Phase 5)
+automation/    self-heal / circuit breaker (later)
+runbooks/      incident guides (later)
 ```
+
+---
+
+Built by **[Con Alma Tech](https://conalma.tech)** — SRE packages with soul.
