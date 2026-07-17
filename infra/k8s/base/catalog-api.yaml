@@ -1,0 +1,65 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: catalog-api
+  namespace: reliable-app
+  labels:
+    app.kubernetes.io/name: catalog-api
+    app.kubernetes.io/part-of: reliable-app
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: catalog-api
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: catalog-api
+        app.kubernetes.io/part-of: reliable-app
+    spec:
+      containers:
+        - name: catalog-api
+          image: reliable-app/catalog-api:dev
+          imagePullPolicy: Never
+          ports:
+            - containerPort: 8000
+              name: http
+          env:
+            - name: DATABASE_URL
+              value: postgresql+psycopg2://catalog:catalog@postgres:5432/catalog
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 3
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          resources:
+            requests:
+              cpu: 25m
+              memory: 64Mi
+            limits:
+              memory: 256Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: catalog-api
+  namespace: reliable-app
+  labels:
+    app.kubernetes.io/name: catalog-api
+    app.kubernetes.io/part-of: reliable-app
+spec:
+  type: NodePort
+  selector:
+    app.kubernetes.io/name: catalog-api
+  ports:
+    - name: http
+      port: 8000
+      targetPort: http
+      nodePort: 30081

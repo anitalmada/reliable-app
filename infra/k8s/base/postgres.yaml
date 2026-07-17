@@ -1,0 +1,103 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: postgres-init
+  namespace: reliable-app
+  labels:
+    app.kubernetes.io/name: postgres
+    app.kubernetes.io/part-of: reliable-app
+data:
+  01-init.sql: |
+    CREATE USER catalog WITH PASSWORD 'catalog';
+    CREATE DATABASE catalog OWNER catalog;
+    GRANT ALL PRIVILEGES ON DATABASE catalog TO catalog;
+
+    CREATE USER checkout WITH PASSWORD 'checkout';
+    CREATE DATABASE checkout OWNER checkout;
+    GRANT ALL PRIVILEGES ON DATABASE checkout TO checkout;
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: postgres
+  namespace: reliable-app
+  labels:
+    app.kubernetes.io/name: postgres
+    app.kubernetes.io/part-of: reliable-app
+type: Opaque
+stringData:
+  POSTGRES_USER: postgres
+  POSTGRES_PASSWORD: postgres
+  POSTGRES_DB: postgres
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: postgres
+  namespace: reliable-app
+  labels:
+    app.kubernetes.io/name: postgres
+    app.kubernetes.io/part-of: reliable-app
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: postgres
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: postgres
+        app.kubernetes.io/part-of: reliable-app
+    spec:
+      containers:
+        - name: postgres
+          image: postgres:16-alpine
+          ports:
+            - containerPort: 5432
+              name: postgres
+          envFrom:
+            - secretRef:
+                name: postgres
+          volumeMounts:
+            - name: init
+              mountPath: /docker-entrypoint-initdb.d
+            - name: data
+              mountPath: /var/lib/postgresql/data
+          readinessProbe:
+            exec:
+              command: ["pg_isready", "-U", "postgres"]
+            initialDelaySeconds: 3
+            periodSeconds: 5
+          livenessProbe:
+            exec:
+              command: ["pg_isready", "-U", "postgres"]
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+            limits:
+              memory: 512Mi
+      volumes:
+        - name: init
+          configMap:
+            name: postgres-init
+        - name: data
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres
+  namespace: reliable-app
+  labels:
+    app.kubernetes.io/name: postgres
+    app.kubernetes.io/part-of: reliable-app
+spec:
+  selector:
+    app.kubernetes.io/name: postgres
+  ports:
+    - name: postgres
+      port: 5432
+      targetPort: postgres
