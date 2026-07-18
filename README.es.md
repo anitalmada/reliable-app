@@ -87,4 +87,4 @@ runbooks/      guías de incidente (más adelante)
 
 ---
 
-Hecho por **[Con Alma Tech](https://conalma.tech)** — paquetes SRE con alma.
+Hecho por **[Con Alma Tech](https://conalma.tech)** — SRE con toque humano.

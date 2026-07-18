@@ -87,4 +87,4 @@ runbooks/      incident guides (later)
 
 ---
 
-Built by **[Con Alma Tech](https://conalma.tech)** — SRE packages with soul.
+Built by **[Con Alma Tech](https://conalma.tech)** — SRE with a human touch.
