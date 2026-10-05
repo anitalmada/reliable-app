@@ -9,6 +9,8 @@ Tres servicios FastAPI en **Kind** local, con fallos inyectables en pagos y `/me
 | `catalog-api` | http://127.0.0.1:8081 | Listado / detalle de productos |
 | `checkout-api` | http://127.0.0.1:8082 | Checkout + orquestación de pago |
 | `payments-mock` | http://127.0.0.1:8083 | Pagos mock + inyección de fallos |
+| Prometheus | http://127.0.0.1:9090 | Métricas + recording rules de SLI |
+| Grafana | http://127.0.0.1:3000 | Dashboards as code (`admin` / `admin`) |
 
 **Para quién:** equipos que evalúan demos SRE (latencia, errores, saturación) sin un stack de producción completo.
 
@@ -83,6 +85,27 @@ Ver [SLO_DEFINITION.es.md](SLO_DEFINITION.es.md) (SLIs de negocio, política de 
 
 Serie PromQL: `slo:error_budget_remaining:ratio` (labels `slo=availability|payment_latency|checkout_success`).
 
+## Grafana (dashboards as code)
+
+Abrí http://127.0.0.1:3000 (Viewer anónimo, o `admin` / `admin`).
+
+Los dashboards cargan desde git — sin importar a mano:
+
+| Dashboard | Propósito |
+|---|---|
+| **Executive** | Semáforos de error budget + tendencias |
+| **Triage** | Cuatro señales doradas |
+| **Infra** | CPU / memoria / FDs de proceso por servicio |
+
+JSON + provisioning: `infra/k8s/base/grafana/`.
+
+Si el puerto 3000 no responde (cluster Kind anterior a Grafana):
+
+```bash
+kind delete cluster --name reliable-app && ./scripts/bootstrap-kind.sh
+# o: kubectl -n reliable-app port-forward svc/grafana 3000:3000
+```
+
 ## Apagar
 
 ```bash
@@ -93,8 +116,9 @@ kind delete cluster --name reliable-app
 
 ```text
 app/                 Servicios FastAPI (catalog, checkout, payments-mock)
-infra/k8s/           Config Kind + manifiestos Kustomize (incl. Prometheus + recording rules)
-infra/k8s/base/prometheus/  prometheus.yml + recording_rules.yml (SLIs / error budget)
+infra/k8s/           Config Kind + Kustomize (APIs, Prometheus, Grafana)
+infra/k8s/base/prometheus/  scrape + recording rules (SLIs / error budget)
+infra/k8s/base/grafana/     dashboards JSON + provisioning
 SLO_DEFINITION.es.md SLOs de negocio (ES) · SLO_DEFINITION.md (EN)
 scripts/             bootstrap, smoke-test, query/check error budget
 automation/          self-heal / circuit breaker (más adelante)

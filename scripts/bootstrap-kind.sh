@@ -58,6 +58,7 @@ wait_ready() {
   kubectl -n reliable-app rollout status deploy/catalog-api --timeout=120s
   kubectl -n reliable-app rollout status deploy/checkout-api --timeout=120s
   kubectl -n reliable-app rollout status deploy/prometheus --timeout=120s
+  kubectl -n reliable-app rollout status deploy/grafana --timeout=120s
 }
 
 print_usage() {
@@ -70,11 +71,17 @@ Local endpoints (host → NodePort via kind-config extraPortMappings):
   checkout-api   http://127.0.0.1:8082
   payments-mock  http://127.0.0.1:8083
   prometheus     http://127.0.0.1:9090
+  grafana        http://127.0.0.1:3000  (admin/admin; anonymous Viewer OK)
 
 OpenAPI docs:
   http://127.0.0.1:8081/docs
   http://127.0.0.1:8082/docs
   http://127.0.0.1:8083/docs
+
+Grafana dashboards (folder "Reliable App"):
+  Executive — SLOs / error budget
+  Triage — four golden signals
+  Infra — process CPU / memory
 
 SLOs / error budget:
   docs:  SLO_DEFINITION.md
@@ -83,6 +90,11 @@ SLOs / error budget:
 
 Smoke test:
   ./scripts/smoke-test.sh
+
+Note: if Grafana port 3000 is unreachable on an old Kind cluster,
+recreate it (port maps are fixed at cluster create time):
+  kind delete cluster --name reliable-app && ./scripts/bootstrap-kind.sh
+  # or: kubectl -n reliable-app port-forward svc/grafana 3000:3000
 
 Tear down:
   kind delete cluster --name reliable-app

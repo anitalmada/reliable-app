@@ -9,6 +9,8 @@ Three FastAPI services on local **Kind**, with injectable payment faults and Pro
 | `catalog-api` | http://127.0.0.1:8081 | Product list / detail |
 | `checkout-api` | http://127.0.0.1:8082 | Checkout + pay orchestration |
 | `payments-mock` | http://127.0.0.1:8083 | Mock payments + fault injection |
+| Prometheus | http://127.0.0.1:9090 | Metrics + SLI recording rules |
+| Grafana | http://127.0.0.1:3000 | Dashboards as code (`admin` / `admin`) |
 
 **Who it’s for:** teams evaluating SRE demos (latency, errors, saturation) without a full production stack.
 
@@ -83,6 +85,27 @@ See [SLO_DEFINITION.md](SLO_DEFINITION.md) (business SLIs, freeze policy).
 
 PromQL series: `slo:error_budget_remaining:ratio` (labels `slo=availability|payment_latency|checkout_success`).
 
+## Grafana (dashboards as code)
+
+Open http://127.0.0.1:3000 (anonymous Viewer, or `admin` / `admin`).
+
+Dashboards load from git — no manual import:
+
+| Dashboard | Purpose |
+|---|---|
+| **Executive** | SLO error-budget traffic lights + trends |
+| **Triage** | Four golden signals (latency, traffic, errors, saturation) |
+| **Infra** | Process CPU / memory / FDs per service |
+
+JSON + provisioning: `infra/k8s/base/grafana/`.
+
+If port 3000 does not respond (Kind cluster created before Grafana existed):
+
+```bash
+kind delete cluster --name reliable-app && ./scripts/bootstrap-kind.sh
+# or: kubectl -n reliable-app port-forward svc/grafana 3000:3000
+```
+
 ## Tear down
 
 ```bash
@@ -93,8 +116,9 @@ kind delete cluster --name reliable-app
 
 ```text
 app/                 FastAPI services (catalog, checkout, payments-mock)
-infra/k8s/           Kind config + Kustomize manifests (incl. Prometheus + recording rules)
-infra/k8s/base/prometheus/  prometheus.yml + recording_rules.yml (SLIs / error budget)
+infra/k8s/           Kind config + Kustomize (APIs, Prometheus, Grafana)
+infra/k8s/base/prometheus/  scrape + recording rules (SLIs / error budget)
+infra/k8s/base/grafana/     dashboards JSON + provisioning
 SLO_DEFINITION.md    Business SLOs (EN) · SLO_DEFINITION.es.md (ES)
 scripts/             bootstrap, smoke-test, query/check error budget
 automation/          self-heal / circuit breaker (later)

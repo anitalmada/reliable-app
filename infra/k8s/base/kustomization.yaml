@@ -10,12 +10,24 @@ resources:
   - checkout-api.yaml
   - payments-mock.yaml
   - prometheus.yaml
+  - grafana.yaml
 
 configMapGenerator:
   - name: prometheus-config
     files:
       - prometheus/prometheus.yml
       - prometheus/recording_rules.yml
+  - name: grafana-datasources
+    files:
+      - datasource.yml=grafana/provisioning/datasources/datasource.yml
+  - name: grafana-dashboard-provider
+    files:
+      - dashboards.yml=grafana/provisioning/dashboards/dashboards.yml
+  - name: grafana-dashboards
+    files:
+      - executive.json=grafana/dashboards/executive.json
+      - triage.json=grafana/dashboards/triage.json
+      - infra.json=grafana/dashboards/infra.json
 
 generatorOptions:
   disableNameSuffixHash: true
