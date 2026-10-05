@@ -46,7 +46,11 @@ app = FastAPI(
     version="0.1.0",
 )
 
-Instrumentator().instrument(app).expose(app, endpoint="/metrics")
+Instrumentator(
+    should_group_status_codes=False,
+    should_ignore_untemplated=True,
+    excluded_handlers=["/metrics", "/health"],
+).instrument(app).expose(app, endpoint="/metrics", include_in_schema=False)
 
 
 @app.get("/health", response_model=HealthOut, tags=["ops"])

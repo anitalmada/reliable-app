@@ -57,6 +57,7 @@ wait_ready() {
   kubectl -n reliable-app rollout status deploy/payments-mock --timeout=120s
   kubectl -n reliable-app rollout status deploy/catalog-api --timeout=120s
   kubectl -n reliable-app rollout status deploy/checkout-api --timeout=120s
+  kubectl -n reliable-app rollout status deploy/prometheus --timeout=120s
 }
 
 print_usage() {
@@ -68,11 +69,17 @@ Local endpoints (host → NodePort via kind-config extraPortMappings):
   catalog-api    http://127.0.0.1:8081
   checkout-api   http://127.0.0.1:8082
   payments-mock  http://127.0.0.1:8083
+  prometheus     http://127.0.0.1:9090
 
 OpenAPI docs:
   http://127.0.0.1:8081/docs
   http://127.0.0.1:8082/docs
   http://127.0.0.1:8083/docs
+
+SLOs / error budget:
+  docs:  SLO_DEFINITION.md
+  query: ./scripts/query-error-budget.sh
+  gate:  ./scripts/check-error-budget.sh --min-remaining 0.20
 
 Smoke test:
   ./scripts/smoke-test.sh

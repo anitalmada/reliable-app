@@ -1,0 +1,82 @@
+groups:
+  - name: reliable-app-slis
+    interval: 15s
+    rules:
+      # Demo Kind: ratios over cumulative counters (process lifetime).
+      # Production intent (30d): replace with rate(...[30d]) — see SLO_DEFINITION.md.
+
+      # --- Availability SLI (excl. 4xx from denominator) ---
+      - record: sli:http_availability:ratio
+        expr: |
+          (
+            sum(http_requests_total{job=~"catalog-api|checkout-api|payments-mock",status=~"2..|3.."})
+            /
+            clamp_min(
+              sum(http_requests_total{job=~"catalog-api|checkout-api|payments-mock",status!~"4.."}),
+              1
+            )
+          )
+
+      - record: sli:http_availability:bad_ratio
+        expr: 1 - sli:http_availability:ratio
+
+      # --- Payment latency SLI: share of /charge under 500ms ---
+      - record: sli:payment_latency:ratio
+        expr: |
+          (
+            sum(http_request_duration_seconds_bucket{job="payments-mock",handler="/charge",le="0.5"})
+            /
+            clamp_min(
+              sum(http_request_duration_seconds_count{job="payments-mock",handler="/charge"}),
+              1
+            )
+          )
+
+      - record: sli:payment_latency:bad_ratio
+        expr: 1 - sli:payment_latency:ratio
+
+      # --- Checkout success SLI (business counters on pay outcome) ---
+      - record: sli:checkout_success:ratio
+        expr: |
+          (
+            sum(checkout_total{job="checkout-api",status="completed"})
+            /
+            clamp_min(
+              sum(checkout_total{job="checkout-api",status=~"completed|failed"}),
+              1
+            )
+          )
+
+      - record: sli:checkout_success:bad_ratio
+        expr: 1 - sli:checkout_success:ratio
+
+      # --- Error budget remaining: 1 - (bad / allowed) ---
+      - record: slo:error_budget_remaining:ratio
+        labels:
+          slo: availability
+        expr: |
+          clamp(
+            1 - (sli:http_availability:bad_ratio / 0.005),
+            0,
+            1
+          )
+
+      - record: slo:error_budget_remaining:ratio
+        labels:
+          slo: payment_latency
+        expr: |
+          clamp(
+            1 - (sli:payment_latency:bad_ratio / 0.05),
+            0,
+            1
+          )
+
+      - record: slo:error_budget_remaining:ratio
+        labels:
+          slo: checkout_success
+        expr: |
+          clamp(
+            1 - (sli:checkout_success:bad_ratio / 0.001),
+            0,
+            1
+          )

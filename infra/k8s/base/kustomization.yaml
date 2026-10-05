@@ -9,6 +9,18 @@ resources:
   - catalog-api.yaml
   - checkout-api.yaml
   - payments-mock.yaml
+  - prometheus.yaml
 
-commonLabels:
-  app.kubernetes.io/part-of: reliable-app
+configMapGenerator:
+  - name: prometheus-config
+    files:
+      - prometheus/prometheus.yml
+      - prometheus/recording_rules.yml
+
+generatorOptions:
+  disableNameSuffixHash: true
+
+labels:
+  - pairs:
+      app.kubernetes.io/part-of: reliable-app
+    includeSelectors: false

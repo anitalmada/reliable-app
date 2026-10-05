@@ -26,9 +26,11 @@ Tres servicios FastAPI en **Kind** local, con fallos inyectables en pagos y `/me
 ## Levantar el entorno (~10 min)
 
 ```bash
-chmod +x scripts/bootstrap-kind.sh scripts/smoke-test.sh
+chmod +x scripts/*.sh
 ./scripts/bootstrap-kind.sh
 ./scripts/smoke-test.sh
+# esperar ~30s para scrape + recording rules, luego:
+./scripts/query-error-budget.sh
 ```
 
 Documentación OpenAPI: `/docs` en cada puerto de la tabla.
@@ -69,6 +71,18 @@ curl -s -X POST http://127.0.0.1:8083/admin/faults \
   -d '{"latency_ms":0,"error_rate":0,"timeout":false}'
 ```
 
+## SLOs y error budget
+
+Ver [SLO_DEFINITION.es.md](SLO_DEFINITION.es.md) (SLIs de negocio, política de freeze).
+
+| | URL / comando |
+|---|---|
+| UI de Prometheus | http://127.0.0.1:9090 |
+| Budget restante | `./scripts/query-error-budget.sh` |
+| Gate de freeze | `./scripts/check-error-budget.sh --min-remaining 0.20` |
+
+Serie PromQL: `slo:error_budget_remaining:ratio` (labels `slo=availability|payment_latency|checkout_success`).
+
 ## Apagar
 
 ```bash
@@ -78,11 +92,13 @@ kind delete cluster --name reliable-app
 ## Estructura
 
 ```text
-app/           Servicios FastAPI (catalog, checkout, payments-mock)
-infra/k8s/     Config Kind + manifiestos Kustomize
-scripts/       bootstrap-kind.sh, smoke-test.sh
-automation/    self-heal / circuit breaker (más adelante)
-runbooks/      guías de incidente (más adelante)
+app/                 Servicios FastAPI (catalog, checkout, payments-mock)
+infra/k8s/           Config Kind + manifiestos Kustomize (incl. Prometheus + recording rules)
+infra/k8s/base/prometheus/  prometheus.yml + recording_rules.yml (SLIs / error budget)
+SLO_DEFINITION.es.md SLOs de negocio (ES) · SLO_DEFINITION.md (EN)
+scripts/             bootstrap, smoke-test, query/check error budget
+automation/          self-heal / circuit breaker (más adelante)
+runbooks/            guías de incidente (más adelante)
 ```
 
 ---
