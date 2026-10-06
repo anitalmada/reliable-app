@@ -1,0 +1,127 @@
+groups:
+  # Multi-window multi-burn-rate adapted for a 30d SLO intent.
+  # Thresholds follow Google SRE workbook factors:
+  #   page  (fast): 14.4x over 1h AND 5m
+  #   ticket (slow): 6x over 6h AND 30m
+  #
+  # allowed bad ratios:
+  #   availability 0.005 | payment_latency 0.05 | checkout_success 0.001
+  #
+  # NO cpu>80% alerts — budget burn only.
+
+  - name: reliable-app-burn-rate-page
+    rules:
+      - alert: ErrorBudgetBurnFastAvailability
+        expr: |
+          (
+            sli:http_availability:bad_ratio:1h > (14.4 * 0.005)
+            and
+            sli:http_availability:bad_ratio:5m > (14.4 * 0.005)
+          )
+        for: 1m
+        labels:
+          severity: page
+          slo: availability
+          receiver: pager
+        annotations:
+          summary: "PAGE: fast burn of availability error budget"
+          description: >-
+            Critical: we are burning the availability error budget too fast
+            (≈14.4× sustained over 1h and 5m). Allowed failure ratio is 0.5%.
+            Impact: user-facing HTTP failures. See runbook RB_ERR_BUDGET_BURN_FAST
+            and Grafana Executive dashboard.
+
+      - alert: ErrorBudgetBurnFastPaymentLatency
+        expr: |
+          (
+            sli:payment_latency:bad_ratio:1h > (14.4 * 0.05)
+            and
+            sli:payment_latency:bad_ratio:5m > (14.4 * 0.05)
+          )
+        for: 1m
+        labels:
+          severity: page
+          slo: payment_latency
+          receiver: pager
+        annotations:
+          summary: "PAGE: fast burn of payment latency error budget"
+          description: >-
+            Critical: we are consuming the payment latency error budget too fast
+            (≈14.4× over 1h and 5m). SLO allows 5% of /charge slower than 500ms.
+            Current short-window bad ratio is elevated — payments feel slow to users.
+            Check payments-mock faults and Grafana Triage latency panel.
+
+      - alert: ErrorBudgetBurnFastCheckoutSuccess
+        expr: |
+          (
+            sli:checkout_success:bad_ratio:1h > (14.4 * 0.001)
+            and
+            sli:checkout_success:bad_ratio:5m > (14.4 * 0.001)
+          )
+        for: 1m
+        labels:
+          severity: page
+          slo: checkout_success
+          receiver: pager
+        annotations:
+          summary: "PAGE: fast burn of checkout success error budget"
+          description: >-
+            Critical: checkout payment failures are burning the 99.9% success SLO
+            too fast (≈14.4× over 1h and 5m). Revenue path is degraded.
+            Inspect payments-mock /charge errors and checkout-api 502s.
+
+  - name: reliable-app-burn-rate-ticket
+    rules:
+      - alert: ErrorBudgetBurnSlowAvailability
+        expr: |
+          (
+            sli:http_availability:bad_ratio:6h > (6 * 0.005)
+            and
+            sli:http_availability:bad_ratio:30m > (6 * 0.005)
+          )
+        for: 5m
+        labels:
+          severity: ticket
+          slo: availability
+          receiver: ticket
+        annotations:
+          summary: "TICKET: slow burn of availability error budget"
+          description: >-
+            Elevated availability budget burn (≈6× over 6h and 30m).
+            Review in business hours — not paging yet.
+
+      - alert: ErrorBudgetBurnSlowPaymentLatency
+        expr: |
+          (
+            sli:payment_latency:bad_ratio:6h > (6 * 0.05)
+            and
+            sli:payment_latency:bad_ratio:30m > (6 * 0.05)
+          )
+        for: 5m
+        labels:
+          severity: ticket
+          slo: payment_latency
+          receiver: ticket
+        annotations:
+          summary: "TICKET: slow burn of payment latency error budget"
+          description: >-
+            Payment latency is consuming error budget at ~6× (6h + 30m windows).
+            Create a ticket for business-hours review; page only if it accelerates.
+
+      - alert: ErrorBudgetBurnSlowCheckoutSuccess
+        expr: |
+          (
+            sli:checkout_success:bad_ratio:6h > (6 * 0.001)
+            and
+            sli:checkout_success:bad_ratio:30m > (6 * 0.001)
+          )
+        for: 5m
+        labels:
+          severity: ticket
+          slo: checkout_success
+          receiver: ticket
+        annotations:
+          summary: "TICKET: slow burn of checkout success error budget"
+          description: >-
+            Checkout failures are slowly burning the 99.9% SLO (~6× over 6h/30m).
+            Investigate payment errors during business hours.

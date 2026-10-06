@@ -11,6 +11,8 @@ Tres servicios FastAPI en **Kind** local, con fallos inyectables en pagos y `/me
 | `payments-mock` | http://127.0.0.1:8083 | Pagos mock + inyección de fallos |
 | Prometheus | http://127.0.0.1:9090 | Métricas + recording rules de SLI |
 | Grafana | http://127.0.0.1:3000 | Dashboards as code (`admin` / `admin`) |
+| Alertmanager | http://127.0.0.1:9093 | Rutas P1 (página) vs P2 (ticket) |
+| alert-inbox | http://127.0.0.1:8084 | Sink demo de webhooks P1/P2 |
 
 **Para quién:** equipos que evalúan demos SRE (latencia, errores, saturación) sin un stack de producción completo.
 
@@ -99,11 +101,25 @@ Los dashboards cargan desde git — sin importar a mano:
 
 JSON + provisioning: `infra/k8s/base/grafana/`.
 
-Si el puerto 3000 no responde (cluster Kind anterior a Grafana):
+Si un puerto nuevo no responde (los maps de Kind se fijan al crear el cluster):
 
 ```bash
 kind delete cluster --name reliable-app && ./scripts/bootstrap-kind.sh
-# o: kubectl -n reliable-app port-forward svc/grafana 3000:3000
+```
+
+## Alertas (burn rate de error budget)
+
+Sin umbrales de CPU. Alertas **multi-window multi-burn-rate** sobre SLOs:
+
+| Severidad | Ventanas | Factor | Ruta |
+|---|---|---|---|
+| **page** (P1) | 1h + 5m | 14.4× | `alert-inbox` `/pager` |
+| **ticket** (P2) | 6h + 30m | 6× | `alert-inbox` `/ticket` |
+
+```bash
+./scripts/demo-latency-alert.sh
+./scripts/check-alerts.sh
+curl -s http://127.0.0.1:8084/inbox | python3 -m json.tool
 ```
 
 ## Apagar

@@ -1,0 +1,38 @@
+global:
+  resolve_timeout: 5m
+
+route:
+  receiver: ticket
+  group_by: ["alertname", "slo"]
+  group_wait: 10s
+  group_interval: 1m
+  repeat_interval: 1h
+  routes:
+    # P1 — page / wake someone (fast burn)
+    - matchers:
+        - severity = page
+      receiver: pager
+      continue: false
+    # P2 — ticket / business-hours review (slow burn)
+    - matchers:
+        - severity = ticket
+      receiver: ticket
+      continue: false
+
+receivers:
+  - name: pager
+    webhook_configs:
+      - url: http://alert-inbox:8000/pager
+        send_resolved: true
+  - name: ticket
+    webhook_configs:
+      - url: http://alert-inbox:8000/ticket
+        send_resolved: true
+
+inhibit_rules:
+  # If a fast (page) burn is firing for an SLO, suppress the slow ticket for same SLO
+  - source_matchers:
+      - severity = page
+    target_matchers:
+      - severity = ticket
+    equal: ["slo"]

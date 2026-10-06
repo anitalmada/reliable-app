@@ -11,12 +11,18 @@ resources:
   - payments-mock.yaml
   - prometheus.yaml
   - grafana.yaml
+  - alertmanager.yaml
+  - alert-inbox.yaml
 
 configMapGenerator:
   - name: prometheus-config
     files:
       - prometheus/prometheus.yml
       - prometheus/recording_rules.yml
+      - prometheus/alert_rules.yml
+  - name: alertmanager-config
+    files:
+      - alertmanager.yml=alertmanager/alertmanager.yml
   - name: grafana-datasources
     files:
       - datasource.yml=grafana/provisioning/datasources/datasource.yml

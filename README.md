@@ -11,6 +11,8 @@ Three FastAPI services on local **Kind**, with injectable payment faults and Pro
 | `payments-mock` | http://127.0.0.1:8083 | Mock payments + fault injection |
 | Prometheus | http://127.0.0.1:9090 | Metrics + SLI recording rules |
 | Grafana | http://127.0.0.1:3000 | Dashboards as code (`admin` / `admin`) |
+| Alertmanager | http://127.0.0.1:9093 | Routes P1 (page) vs P2 (ticket) |
+| alert-inbox | http://127.0.0.1:8084 | Demo webhook sink for P1/P2 |
 
 **Who it’s for:** teams evaluating SRE demos (latency, errors, saturation) without a full production stack.
 
@@ -99,11 +101,29 @@ Dashboards load from git — no manual import:
 
 JSON + provisioning: `infra/k8s/base/grafana/`.
 
-If port 3000 does not respond (Kind cluster created before Grafana existed):
+If a new port does not respond (Kind maps are fixed at cluster create):
 
 ```bash
 kind delete cluster --name reliable-app && ./scripts/bootstrap-kind.sh
-# or: kubectl -n reliable-app port-forward svc/grafana 3000:3000
+```
+
+## Alerts (error-budget burn rate)
+
+No CPU thresholds. Alerts use **multi-window multi-burn-rate** on SLOs:
+
+| Severity | Windows | Factor | Route |
+|---|---|---|---|
+| **page** (P1) | 1h + 5m | 14.4× | `alert-inbox` `/pager` |
+| **ticket** (P2) | 6h + 30m | 6× | `alert-inbox` `/ticket` |
+
+Rules: `infra/k8s/base/prometheus/alert_rules.yml`  
+Routing: `infra/k8s/base/alertmanager/alertmanager.yml`
+
+```bash
+# Demo: inject latency until PAGE alert fires (~3–4 min)
+./scripts/demo-latency-alert.sh
+./scripts/check-alerts.sh
+curl -s http://127.0.0.1:8084/inbox | python3 -m json.tool
 ```
 
 ## Tear down
