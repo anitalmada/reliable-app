@@ -148,8 +148,7 @@ curl -s http://127.0.0.1:8085/actions | python3 -m json.tool
 | [RB_CIRCUIT_OPEN](runbooks/RB_CIRCUIT_OPEN.es.md) | Circuit abierto / 503 degraded |
 
 Índice: [runbooks/README.md](runbooks/README.md)  
-Guion del video de transferencia: [docs/TRANSFER_VIDEO.md](docs/TRANSFER_VIDEO.md)  
-**Video:** _próximamente_ (grabar Loom / YouTube unlisted y reemplazar esta línea)
+**Video:** _próximamente_ (overview — pegar aquí la URL de Loom / YouTube unlisted)
 
 ## Apagar
 
@@ -168,7 +167,6 @@ SLO_DEFINITION.es.md SLOs de negocio (ES) · SLO_DEFINITION.md (EN)
 scripts/             bootstrap, smoke-test, query/check error budget
 automation/          webhook self-heal + docs del circuit breaker
 runbooks/            runbooks de incidente (ES + EN)
-docs/                guion del video de transferencia
 ```
 
 ---

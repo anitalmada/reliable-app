@@ -8,3 +8,6 @@ venv/
 .idea/
 .vscode/
 .DS_Store
+
+# Local filming / transfer notes (not shared)
+docs/

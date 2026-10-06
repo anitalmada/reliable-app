@@ -109,4 +109,3 @@ Forzar webhook de heal (demo):
 - Quema lenta (ticket): [RB_ERR_BUDGET_BURN_SLOW.es.md](RB_ERR_BUDGET_BURN_SLOW.es.md)
 - Circuit abierto: [RB_CIRCUIT_OPEN.es.md](RB_CIRCUIT_OPEN.es.md)
 - EN: [RB_ERR_BUDGET_BURN_FAST.md](RB_ERR_BUDGET_BURN_FAST.md)
-- Guion de transferencia: [../docs/TRANSFER_VIDEO.md](../docs/TRANSFER_VIDEO.md)

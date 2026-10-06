@@ -118,4 +118,3 @@ Force a heal webhook (demo / stuck cooldown after you fixed root cause):
 - Slow burn (ticket): [RB_ERR_BUDGET_BURN_SLOW.md](RB_ERR_BUDGET_BURN_SLOW.md)
 - Circuit / degraded mode: [RB_CIRCUIT_OPEN.md](RB_CIRCUIT_OPEN.md)
 - ES: [RB_ERR_BUDGET_BURN_FAST.es.md](RB_ERR_BUDGET_BURN_FAST.es.md)
-- Transfer outline: [../docs/TRANSFER_VIDEO.md](../docs/TRANSFER_VIDEO.md)
