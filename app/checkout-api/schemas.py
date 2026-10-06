@@ -9,6 +9,13 @@ class HealthOut(BaseModel):
     status: str
 
 
+class CircuitOut(BaseModel):
+    state: str
+    failures: int
+    failure_threshold: int
+    recovery_timeout_s: float
+
+
 class CheckoutItemIn(BaseModel):
     product_id: int
     quantity: int = Field(ge=1)

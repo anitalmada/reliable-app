@@ -13,6 +13,7 @@ Tres servicios FastAPI en **Kind** local, con fallos inyectables en pagos y `/me
 | Grafana | http://127.0.0.1:3000 | Dashboards as code (`admin` / `admin`) |
 | Alertmanager | http://127.0.0.1:9093 | Rutas P1 (página) vs P2 (ticket) |
 | alert-inbox | http://127.0.0.1:8084 | Sink demo de webhooks P1/P2 |
+| self-heal | http://127.0.0.1:8085 | Mitigación P1 (restart + limpiar fallos) |
 
 **Para quién:** equipos que evalúan demos SRE (latencia, errores, saturación) sin un stack de producción completo.
 
@@ -122,6 +123,22 @@ Sin umbrales de CPU. Alertas **multi-window multi-burn-rate** sobre SLOs:
 curl -s http://127.0.0.1:8084/inbox | python3 -m json.tool
 ```
 
+## Resiliencia (circuit breaker + self-heal)
+
+Los fallos de pago no deben propagarse al resto del checkout. Checkout abre un **circuit breaker** tras fallos repetidos y responde **503 degraded**. Las páginas P1 de Alertmanager también llegan a un webhook **self-heal** que escribe evidencia, limpia fallos de pagos y hace rollout de `payments-mock`.
+
+| | Comando / docs |
+|---|---|
+| Demo circuit | `./scripts/demo-circuit-breaker.sh` |
+| Demo self-heal | `./scripts/demo-self-heal.sh` |
+| Docs circuit | [automation/circuit-breaker/README.md](automation/circuit-breaker/README.md) |
+| Docs self-heal | [automation/self-heal/README.md](automation/self-heal/README.md) |
+
+```bash
+curl -s http://127.0.0.1:8082/circuit | python3 -m json.tool
+curl -s http://127.0.0.1:8085/actions | python3 -m json.tool
+```
+
 ## Apagar
 
 ```bash
@@ -137,7 +154,7 @@ infra/k8s/base/prometheus/  scrape + recording rules (SLIs / error budget)
 infra/k8s/base/grafana/     dashboards JSON + provisioning
 SLO_DEFINITION.es.md SLOs de negocio (ES) · SLO_DEFINITION.md (EN)
 scripts/             bootstrap, smoke-test, query/check error budget
-automation/          self-heal / circuit breaker (más adelante)
+automation/          webhook self-heal + docs del circuit breaker
 runbooks/            guías de incidente (más adelante)
 ```
 

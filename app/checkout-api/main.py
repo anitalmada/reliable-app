@@ -1,7 +1,8 @@
-"""checkout-api — create checkout, pay via payments-mock (Reliable App Phase 0).
+"""checkout-api — create checkout, pay via payments-mock (Reliable App).
 
-Endpoints (Scope — Minimal App):
+Endpoints:
   GET  /health
+  GET  /circuit
   POST /checkout
   GET  /checkout/{id}
   POST /checkout/{id}/pay
@@ -19,26 +20,39 @@ from prometheus_client import Counter
 from prometheus_fastapi_instrumentator import Instrumentator
 from sqlalchemy.orm import Session
 
+from circuit_breaker import CircuitBreaker
 from db import Base, engine, get_db
 from models import Checkout
 from schemas import (
     CheckoutCreateIn,
     CheckoutItemOut,
     CheckoutOut,
+    CircuitOut,
     HealthOut,
 )
 
 PAYMENTS_URL = os.getenv("PAYMENTS_URL", "http://payments-mock:8000")
 PAYMENTS_TIMEOUT_S = float(os.getenv("PAYMENTS_TIMEOUT_S", "5"))
+CB_FAILURE_THRESHOLD = int(os.getenv("CB_FAILURE_THRESHOLD", "3"))
+CB_RECOVERY_TIMEOUT_S = float(os.getenv("CB_RECOVERY_TIMEOUT_S", "30"))
+
+payments_cb = CircuitBreaker(
+    failure_threshold=CB_FAILURE_THRESHOLD,
+    recovery_timeout_s=CB_RECOVERY_TIMEOUT_S,
+)
 
 checkout_total = Counter(
     "checkout_total",
-    "Checkouts created",
+    "Checkouts created / pay outcomes",
     ["status"],
 )
 payment_failures_total = Counter(
     "payment_failures_total",
     "Checkout payment attempts that failed",
+)
+circuit_open_total = Counter(
+    "payments_circuit_open_total",
+    "Pay attempts short-circuited because the payments circuit was open",
 )
 
 
@@ -64,8 +78,8 @@ async def lifespan(_app: FastAPI):
 
 app = FastAPI(
     title="checkout-api",
-    description="Minimal checkout orchestration for Reliable App demos.",
-    version="0.1.0",
+    description="Checkout orchestration with payments circuit breaker for Reliable App demos.",
+    version="0.2.0",
     lifespan=lifespan,
 )
 
@@ -79,6 +93,12 @@ Instrumentator(
 @app.get("/health", response_model=HealthOut, tags=["ops"])
 def health() -> HealthOut:
     return HealthOut(status="ok")
+
+
+@app.get("/circuit", response_model=CircuitOut, tags=["ops"])
+def circuit_status() -> CircuitOut:
+    snap = payments_cb.snapshot()
+    return CircuitOut(**snap)
 
 
 @app.post(
@@ -131,6 +151,22 @@ def pay_checkout(checkout_id: str, db: Session = Depends(get_db)) -> CheckoutOut
     if row.status == "completed":
         return checkout_to_out(row)
 
+    # Circuit open → degrade without calling payments (app stays up).
+    if not payments_cb.allow_request():
+        circuit_open_total.inc()
+        row.status = "degraded"
+        row.error_detail = (
+            "Payment under maintenance — retrying in background "
+            f"(circuit={payments_cb.state.value})"
+        )
+        db.commit()
+        db.refresh(row)
+        checkout_total.labels(status="degraded").inc()
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=row.error_detail,
+        )
+
     try:
         with httpx.Client(timeout=PAYMENTS_TIMEOUT_S) as client:
             response = client.post(
@@ -142,6 +178,7 @@ def pay_checkout(checkout_id: str, db: Session = Depends(get_db)) -> CheckoutOut
                 },
             )
     except httpx.RequestError as exc:
+        payments_cb.record_failure()
         payment_failures_total.inc()
         row.status = "failed"
         row.error_detail = f"payments-mock unreachable: {exc}"
@@ -154,6 +191,7 @@ def pay_checkout(checkout_id: str, db: Session = Depends(get_db)) -> CheckoutOut
         ) from exc
 
     if response.status_code >= 500:
+        payments_cb.record_failure()
         payment_failures_total.inc()
         row.status = "failed"
         row.error_detail = response.text
@@ -166,6 +204,7 @@ def pay_checkout(checkout_id: str, db: Session = Depends(get_db)) -> CheckoutOut
         )
 
     if response.status_code >= 400:
+        payments_cb.record_failure()
         payment_failures_total.inc()
         row.status = "failed"
         row.error_detail = response.text
@@ -177,6 +216,7 @@ def pay_checkout(checkout_id: str, db: Session = Depends(get_db)) -> CheckoutOut
             detail="Payment rejected",
         )
 
+    payments_cb.record_success()
     payload = response.json()
     row.status = "completed"
     row.charge_id = payload.get("charge_id")

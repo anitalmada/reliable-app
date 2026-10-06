@@ -61,6 +61,7 @@ wait_ready() {
   kubectl -n reliable-app rollout status deploy/grafana --timeout=120s
   kubectl -n reliable-app rollout status deploy/alertmanager --timeout=120s
   kubectl -n reliable-app rollout status deploy/alert-inbox --timeout=120s
+  kubectl -n reliable-app rollout status deploy/self-heal --timeout=120s
 }
 
 print_usage() {
@@ -73,6 +74,7 @@ Local endpoints (host → NodePort via kind-config extraPortMappings):
   checkout-api   http://127.0.0.1:8082
   payments-mock  http://127.0.0.1:8083
   alert-inbox    http://127.0.0.1:8084  (P1/P2 webhook sink)
+  self-heal      http://127.0.0.1:8085  (P1 mitigation webhook)
   prometheus     http://127.0.0.1:9090
   grafana        http://127.0.0.1:3000  (admin/admin; anonymous Viewer OK)
   alertmanager   http://127.0.0.1:9093
@@ -93,6 +95,12 @@ SLOs / error budget / alerts:
   gate:   ./scripts/check-error-budget.sh --min-remaining 0.20
   alerts: ./scripts/check-alerts.sh
   demo:   ./scripts/demo-latency-alert.sh
+
+Resilience (Phase 4):
+  circuit: ./scripts/demo-circuit-breaker.sh
+  heal:    ./scripts/demo-self-heal.sh
+  docs:    automation/circuit-breaker/README.md
+           automation/self-heal/README.md
 
 Smoke test:
   ./scripts/smoke-test.sh
@@ -125,6 +133,7 @@ main() {
   build_and_load checkout-api "${ROOT}/app/checkout-api"
   build_and_load payments-mock "${ROOT}/app/payments-mock"
   build_and_load alert-inbox "${ROOT}/app/alert-inbox"
+  build_and_load self-heal "${ROOT}/automation/self-heal"
 
   log "Applying manifests (kustomize)"
   kubectl apply -k "${KUSTOMIZE_DIR}"

@@ -13,6 +13,7 @@ Three FastAPI services on local **Kind**, with injectable payment faults and Pro
 | Grafana | http://127.0.0.1:3000 | Dashboards as code (`admin` / `admin`) |
 | Alertmanager | http://127.0.0.1:9093 | Routes P1 (page) vs P2 (ticket) |
 | alert-inbox | http://127.0.0.1:8084 | Demo webhook sink for P1/P2 |
+| self-heal | http://127.0.0.1:8085 | P1 mitigation (restart + clear faults) |
 
 **Who it’s for:** teams evaluating SRE demos (latency, errors, saturation) without a full production stack.
 
@@ -126,6 +127,22 @@ Routing: `infra/k8s/base/alertmanager/alertmanager.yml`
 curl -s http://127.0.0.1:8084/inbox | python3 -m json.tool
 ```
 
+## Resilience (circuit breaker + self-heal)
+
+Payment outages should not cascade. Checkout opens a **circuit breaker** after repeated failures and returns **503 degraded**. Alertmanager P1 pages also hit a **self-heal** webhook that writes evidence, clears payment faults, and rollouts `payments-mock`.
+
+| | Command / docs |
+|---|---|
+| Circuit demo | `./scripts/demo-circuit-breaker.sh` |
+| Self-heal demo | `./scripts/demo-self-heal.sh` |
+| Circuit docs | [automation/circuit-breaker/README.md](automation/circuit-breaker/README.md) |
+| Self-heal docs | [automation/self-heal/README.md](automation/self-heal/README.md) |
+
+```bash
+curl -s http://127.0.0.1:8082/circuit | python3 -m json.tool
+curl -s http://127.0.0.1:8085/actions | python3 -m json.tool
+```
+
 ## Tear down
 
 ```bash
@@ -141,7 +158,7 @@ infra/k8s/base/prometheus/  scrape + recording rules (SLIs / error budget)
 infra/k8s/base/grafana/     dashboards JSON + provisioning
 SLO_DEFINITION.md    Business SLOs (EN) · SLO_DEFINITION.es.md (ES)
 scripts/             bootstrap, smoke-test, query/check error budget
-automation/          self-heal / circuit breaker (later)
+automation/          self-heal webhook + circuit-breaker docs
 runbooks/            incident guides (later)
 ```
 

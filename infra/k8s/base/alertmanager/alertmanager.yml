@@ -24,6 +24,8 @@ receivers:
     webhook_configs:
       - url: http://alert-inbox:8000/pager
         send_resolved: true
+      - url: http://self-heal:8000/webhook
+        send_resolved: false
   - name: ticket
     webhook_configs:
       - url: http://alert-inbox:8000/ticket

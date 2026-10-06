@@ -13,6 +13,7 @@ resources:
   - grafana.yaml
   - alertmanager.yaml
   - alert-inbox.yaml
+  - self-heal.yaml
 
 configMapGenerator:
   - name: prometheus-config
