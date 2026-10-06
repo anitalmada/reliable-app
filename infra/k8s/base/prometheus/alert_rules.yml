@@ -29,7 +29,7 @@ groups:
             Critical: we are burning the availability error budget too fast
             (≈14.4× sustained over 1h and 5m). Allowed failure ratio is 0.5%.
             Impact: user-facing HTTP failures. See runbook RB_ERR_BUDGET_BURN_FAST
-            and Grafana Executive dashboard.
+            (runbooks/RB_ERR_BUDGET_BURN_FAST.md) and Grafana Executive dashboard.
 
       - alert: ErrorBudgetBurnFastPaymentLatency
         expr: |
@@ -50,6 +50,7 @@ groups:
             (≈14.4× over 1h and 5m). SLO allows 5% of /charge slower than 500ms.
             Current short-window bad ratio is elevated — payments feel slow to users.
             Check payments-mock faults and Grafana Triage latency panel.
+            Runbook: RB_ERR_BUDGET_BURN_FAST (runbooks/RB_ERR_BUDGET_BURN_FAST.md).
 
       - alert: ErrorBudgetBurnFastCheckoutSuccess
         expr: |
@@ -69,6 +70,7 @@ groups:
             Critical: checkout payment failures are burning the 99.9% success SLO
             too fast (≈14.4× over 1h and 5m). Revenue path is degraded.
             Inspect payments-mock /charge errors and checkout-api 502s.
+            Runbook: RB_ERR_BUDGET_BURN_FAST (runbooks/RB_ERR_BUDGET_BURN_FAST.md).
 
   - name: reliable-app-burn-rate-ticket
     rules:
@@ -89,6 +91,7 @@ groups:
           description: >-
             Elevated availability budget burn (≈6× over 6h and 30m).
             Review in business hours — not paging yet.
+            Runbook: RB_ERR_BUDGET_BURN_SLOW (runbooks/RB_ERR_BUDGET_BURN_SLOW.md).
 
       - alert: ErrorBudgetBurnSlowPaymentLatency
         expr: |
@@ -107,6 +110,7 @@ groups:
           description: >-
             Payment latency is consuming error budget at ~6× (6h + 30m windows).
             Create a ticket for business-hours review; page only if it accelerates.
+            Runbook: RB_ERR_BUDGET_BURN_SLOW (runbooks/RB_ERR_BUDGET_BURN_SLOW.md).
 
       - alert: ErrorBudgetBurnSlowCheckoutSuccess
         expr: |
@@ -125,3 +129,4 @@ groups:
           description: >-
             Checkout failures are slowly burning the 99.9% SLO (~6× over 6h/30m).
             Investigate payment errors during business hours.
+            Runbook: RB_ERR_BUDGET_BURN_SLOW (runbooks/RB_ERR_BUDGET_BURN_SLOW.md).

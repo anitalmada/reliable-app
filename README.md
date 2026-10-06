@@ -143,6 +143,18 @@ curl -s http://127.0.0.1:8082/circuit | python3 -m json.tool
 curl -s http://127.0.0.1:8085/actions | python3 -m json.tool
 ```
 
+## Runbooks + transfer
+
+| Runbook | When |
+|---|---|
+| [RB_ERR_BUDGET_BURN_FAST](runbooks/RB_ERR_BUDGET_BURN_FAST.md) | PAGE — 14.4× burn |
+| [RB_ERR_BUDGET_BURN_SLOW](runbooks/RB_ERR_BUDGET_BURN_SLOW.md) | TICKET — 6× burn |
+| [RB_CIRCUIT_OPEN](runbooks/RB_CIRCUIT_OPEN.md) | Circuit open / 503 degraded |
+
+Index: [runbooks/README.md](runbooks/README.md)  
+Transfer video outline: [docs/TRANSFER_VIDEO.md](docs/TRANSFER_VIDEO.md)  
+**Video:** _coming soon_ (record Loom / unlisted YouTube, then replace this line)
+
 ## Tear down
 
 ```bash
@@ -159,7 +171,8 @@ infra/k8s/base/grafana/     dashboards JSON + provisioning
 SLO_DEFINITION.md    Business SLOs (EN) · SLO_DEFINITION.es.md (ES)
 scripts/             bootstrap, smoke-test, query/check error budget
 automation/          self-heal webhook + circuit-breaker docs
-runbooks/            incident guides (later)
+runbooks/            incident runbooks (EN + ES)
+docs/                transfer video outline
 ```
 
 ---
