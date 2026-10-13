@@ -79,7 +79,7 @@ Clamped to `[0, 1]` in dashboards / CI.
 
 | Environment | How SLIs are computed | Why |
 |---|---|---|
-| **Kind demo** | Cumulative counter ratios (recording rules) | Sparse traffic makes `rate([1h])` look like zero |
+| **Kind demo** | `increase(...[1h])` windows (+ `or vector(0)` when no traffic) | Executive budgets recover after healthy traffic; empty `/charge` after pod restart is not “No data” |
 | **Production intent** | `rate(...[30d])` / `increase(...[30d])` | Matches the 30-day SLO window |
 
 **Production-style examples** (same targets; swap into rules when you have retention + steady traffic):

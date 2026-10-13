@@ -102,6 +102,9 @@ Resilience (Phase 4):
   docs:    automation/circuit-breaker/README.md
            automation/self-heal/README.md
 
+Before recording (green Executive budgets):
+  ./scripts/prep-dashboards-green.sh
+
 Smoke test:
   ./scripts/smoke-test.sh
 

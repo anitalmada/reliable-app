@@ -2,8 +2,13 @@ groups:
   - name: reliable-app-slis
     interval: 15s
     rules:
-      # Demo Kind: ratios over cumulative counters (process lifetime).
-      # Production intent (30d): replace with rate(...[30d]) — see SLO_DEFINITION.md.
+      # Kind / demo SLIs:
+      # - Windowed bad ratios use increase(); if there is no traffic yet (or only
+      #   one scrape so increase=0), treat bad ratio as 0 — never 0/0=NaN and
+      #   never Grafana "No data".
+      # - Executive error budget uses the 1h window so healthy traffic can turn
+      #   panels green again after a bad demo (without waiting on lifetime counters).
+      # Production intent (30d): see SLO_DEFINITION.md.
 
       # --- Availability SLI (excl. 4xx from denominator) ---
       - record: sli:http_availability:ratio
@@ -11,29 +16,25 @@ groups:
           (
             sum(http_requests_total{job=~"catalog-api|checkout-api|payments-mock",status=~"2..|3.."})
             /
-            clamp_min(
-              sum(http_requests_total{job=~"catalog-api|checkout-api|payments-mock",status!~"4.."}),
-              1
-            )
-          )
+            sum(http_requests_total{job=~"catalog-api|checkout-api|payments-mock",status!~"4.."})
+          ) or vector(1)
 
       - record: sli:http_availability:bad_ratio
-        expr: 1 - sli:http_availability:ratio
+        expr: (1 - sli:http_availability:ratio) or vector(0)
 
       # --- Payment latency SLI: share of /charge under 500ms ---
+      # Histogram series only appear after the first /charge (and vanish on
+      # payments-mock restart until the next charge). Empty → treat as good.
       - record: sli:payment_latency:ratio
         expr: |
           (
             sum(http_request_duration_seconds_bucket{job="payments-mock",handler="/charge",le="0.5"})
             /
-            clamp_min(
-              sum(http_request_duration_seconds_count{job="payments-mock",handler="/charge"}),
-              1
-            )
-          )
+            sum(http_request_duration_seconds_count{job="payments-mock",handler="/charge"})
+          ) or vector(1)
 
       - record: sli:payment_latency:bad_ratio
-        expr: 1 - sli:payment_latency:ratio
+        expr: (1 - sli:payment_latency:ratio) or vector(0)
 
       # --- Checkout success SLI (business counters on pay outcome) ---
       - record: sli:checkout_success:ratio
@@ -41,178 +42,222 @@ groups:
           (
             sum(checkout_total{job="checkout-api",status="completed"})
             /
-            clamp_min(
-              sum(checkout_total{job="checkout-api",status=~"completed|failed"}),
-              1
-            )
-          )
+            sum(checkout_total{job="checkout-api",status=~"completed|failed"})
+          ) or vector(1)
 
       - record: sli:checkout_success:bad_ratio
-        expr: 1 - sli:checkout_success:ratio
+        expr: (1 - sli:checkout_success:ratio) or vector(0)
 
-      # --- Error budget remaining: 1 - (bad / allowed) ---
-      - record: slo:error_budget_remaining:ratio
-        labels:
-          slo: availability
-        expr: |
-          clamp(
-            1 - (sli:http_availability:bad_ratio / 0.005),
-            0,
-            1
-          )
-
-      - record: slo:error_budget_remaining:ratio
-        labels:
-          slo: payment_latency
-        expr: |
-          clamp(
-            1 - (sli:payment_latency:bad_ratio / 0.05),
-            0,
-            1
-          )
-
-      - record: slo:error_budget_remaining:ratio
-        labels:
-          slo: checkout_success
-        expr: |
-          clamp(
-            1 - (sli:checkout_success:bad_ratio / 0.001),
-            0,
-            1
-          )
-
-  # Windowed bad ratios for multi-window multi-burn-rate alerts (increase-based).
+  # Windowed bad ratios for MWMBR alerts + Executive budgets.
+  # Pattern: only divide when increase(denom) > 0; else vector(0).
+  # (`or vector(0)` alone does NOT replace NaN from 0/0.)
   - name: reliable-app-sli-windows
     interval: 15s
     rules:
       - record: sli:http_availability:bad_ratio:5m
         expr: |
-          1 - (
-            sum(increase(http_requests_total{job=~"catalog-api|checkout-api|payments-mock",status=~"2..|3.."}[5m]))
-            /
-            clamp_min(
-              sum(increase(http_requests_total{job=~"catalog-api|checkout-api|payments-mock",status!~"4.."}[5m])),
-              1
+          (
+            (
+              sum(increase(http_requests_total{job=~"catalog-api|checkout-api|payments-mock",status!~"4.."}[5m])) > 0
             )
-          )
+            * (
+              1 - (
+                sum(increase(http_requests_total{job=~"catalog-api|checkout-api|payments-mock",status=~"2..|3.."}[5m]))
+                /
+                sum(increase(http_requests_total{job=~"catalog-api|checkout-api|payments-mock",status!~"4.."}[5m]))
+              )
+            )
+          ) or vector(0)
 
       - record: sli:http_availability:bad_ratio:30m
         expr: |
-          1 - (
-            sum(increase(http_requests_total{job=~"catalog-api|checkout-api|payments-mock",status=~"2..|3.."}[30m]))
-            /
-            clamp_min(
-              sum(increase(http_requests_total{job=~"catalog-api|checkout-api|payments-mock",status!~"4.."}[30m])),
-              1
+          (
+            (
+              sum(increase(http_requests_total{job=~"catalog-api|checkout-api|payments-mock",status!~"4.."}[30m])) > 0
             )
-          )
+            * (
+              1 - (
+                sum(increase(http_requests_total{job=~"catalog-api|checkout-api|payments-mock",status=~"2..|3.."}[30m]))
+                /
+                sum(increase(http_requests_total{job=~"catalog-api|checkout-api|payments-mock",status!~"4.."}[30m]))
+              )
+            )
+          ) or vector(0)
 
       - record: sli:http_availability:bad_ratio:1h
         expr: |
-          1 - (
-            sum(increase(http_requests_total{job=~"catalog-api|checkout-api|payments-mock",status=~"2..|3.."}[1h]))
-            /
-            clamp_min(
-              sum(increase(http_requests_total{job=~"catalog-api|checkout-api|payments-mock",status!~"4.."}[1h])),
-              1
+          (
+            (
+              sum(increase(http_requests_total{job=~"catalog-api|checkout-api|payments-mock",status!~"4.."}[1h])) > 0
             )
-          )
+            * (
+              1 - (
+                sum(increase(http_requests_total{job=~"catalog-api|checkout-api|payments-mock",status=~"2..|3.."}[1h]))
+                /
+                sum(increase(http_requests_total{job=~"catalog-api|checkout-api|payments-mock",status!~"4.."}[1h]))
+              )
+            )
+          ) or vector(0)
 
       - record: sli:http_availability:bad_ratio:6h
         expr: |
-          1 - (
-            sum(increase(http_requests_total{job=~"catalog-api|checkout-api|payments-mock",status=~"2..|3.."}[6h]))
-            /
-            clamp_min(
-              sum(increase(http_requests_total{job=~"catalog-api|checkout-api|payments-mock",status!~"4.."}[6h])),
-              1
+          (
+            (
+              sum(increase(http_requests_total{job=~"catalog-api|checkout-api|payments-mock",status!~"4.."}[6h])) > 0
             )
-          )
+            * (
+              1 - (
+                sum(increase(http_requests_total{job=~"catalog-api|checkout-api|payments-mock",status=~"2..|3.."}[6h]))
+                /
+                sum(increase(http_requests_total{job=~"catalog-api|checkout-api|payments-mock",status!~"4.."}[6h]))
+              )
+            )
+          ) or vector(0)
 
       - record: sli:payment_latency:bad_ratio:5m
         expr: |
-          1 - (
-            sum(increase(http_request_duration_seconds_bucket{job="payments-mock",handler="/charge",le="0.5"}[5m]))
-            /
-            clamp_min(
-              sum(increase(http_request_duration_seconds_count{job="payments-mock",handler="/charge"}[5m])),
-              1
+          (
+            (
+              sum(increase(http_request_duration_seconds_count{job="payments-mock",handler="/charge"}[5m])) > 0
             )
-          )
+            * (
+              1 - (
+                sum(increase(http_request_duration_seconds_bucket{job="payments-mock",handler="/charge",le="0.5"}[5m]))
+                /
+                sum(increase(http_request_duration_seconds_count{job="payments-mock",handler="/charge"}[5m]))
+              )
+            )
+          ) or vector(0)
 
       - record: sli:payment_latency:bad_ratio:30m
         expr: |
-          1 - (
-            sum(increase(http_request_duration_seconds_bucket{job="payments-mock",handler="/charge",le="0.5"}[30m]))
-            /
-            clamp_min(
-              sum(increase(http_request_duration_seconds_count{job="payments-mock",handler="/charge"}[30m])),
-              1
+          (
+            (
+              sum(increase(http_request_duration_seconds_count{job="payments-mock",handler="/charge"}[30m])) > 0
             )
-          )
+            * (
+              1 - (
+                sum(increase(http_request_duration_seconds_bucket{job="payments-mock",handler="/charge",le="0.5"}[30m]))
+                /
+                sum(increase(http_request_duration_seconds_count{job="payments-mock",handler="/charge"}[30m]))
+              )
+            )
+          ) or vector(0)
 
       - record: sli:payment_latency:bad_ratio:1h
         expr: |
-          1 - (
-            sum(increase(http_request_duration_seconds_bucket{job="payments-mock",handler="/charge",le="0.5"}[1h]))
-            /
-            clamp_min(
-              sum(increase(http_request_duration_seconds_count{job="payments-mock",handler="/charge"}[1h])),
-              1
+          (
+            (
+              sum(increase(http_request_duration_seconds_count{job="payments-mock",handler="/charge"}[1h])) > 0
             )
-          )
+            * (
+              1 - (
+                sum(increase(http_request_duration_seconds_bucket{job="payments-mock",handler="/charge",le="0.5"}[1h]))
+                /
+                sum(increase(http_request_duration_seconds_count{job="payments-mock",handler="/charge"}[1h]))
+              )
+            )
+          ) or vector(0)
 
       - record: sli:payment_latency:bad_ratio:6h
         expr: |
-          1 - (
-            sum(increase(http_request_duration_seconds_bucket{job="payments-mock",handler="/charge",le="0.5"}[6h]))
-            /
-            clamp_min(
-              sum(increase(http_request_duration_seconds_count{job="payments-mock",handler="/charge"}[6h])),
-              1
+          (
+            (
+              sum(increase(http_request_duration_seconds_count{job="payments-mock",handler="/charge"}[6h])) > 0
             )
-          )
+            * (
+              1 - (
+                sum(increase(http_request_duration_seconds_bucket{job="payments-mock",handler="/charge",le="0.5"}[6h]))
+                /
+                sum(increase(http_request_duration_seconds_count{job="payments-mock",handler="/charge"}[6h]))
+              )
+            )
+          ) or vector(0)
 
       - record: sli:checkout_success:bad_ratio:5m
         expr: |
-          1 - (
-            sum(increase(checkout_total{job="checkout-api",status="completed"}[5m]))
-            /
-            clamp_min(
-              sum(increase(checkout_total{job="checkout-api",status=~"completed|failed"}[5m])),
-              1
+          (
+            (
+              sum(increase(checkout_total{job="checkout-api",status=~"completed|failed"}[5m])) > 0
             )
-          )
+            * (
+              1 - (
+                sum(increase(checkout_total{job="checkout-api",status="completed"}[5m]))
+                /
+                sum(increase(checkout_total{job="checkout-api",status=~"completed|failed"}[5m]))
+              )
+            )
+          ) or vector(0)
 
       - record: sli:checkout_success:bad_ratio:30m
         expr: |
-          1 - (
-            sum(increase(checkout_total{job="checkout-api",status="completed"}[30m]))
-            /
-            clamp_min(
-              sum(increase(checkout_total{job="checkout-api",status=~"completed|failed"}[30m])),
-              1
+          (
+            (
+              sum(increase(checkout_total{job="checkout-api",status=~"completed|failed"}[30m])) > 0
             )
-          )
+            * (
+              1 - (
+                sum(increase(checkout_total{job="checkout-api",status="completed"}[30m]))
+                /
+                sum(increase(checkout_total{job="checkout-api",status=~"completed|failed"}[30m]))
+              )
+            )
+          ) or vector(0)
 
       - record: sli:checkout_success:bad_ratio:1h
         expr: |
-          1 - (
-            sum(increase(checkout_total{job="checkout-api",status="completed"}[1h]))
-            /
-            clamp_min(
-              sum(increase(checkout_total{job="checkout-api",status=~"completed|failed"}[1h])),
-              1
+          (
+            (
+              sum(increase(checkout_total{job="checkout-api",status=~"completed|failed"}[1h])) > 0
             )
-          )
+            * (
+              1 - (
+                sum(increase(checkout_total{job="checkout-api",status="completed"}[1h]))
+                /
+                sum(increase(checkout_total{job="checkout-api",status=~"completed|failed"}[1h]))
+              )
+            )
+          ) or vector(0)
 
       - record: sli:checkout_success:bad_ratio:6h
         expr: |
-          1 - (
-            sum(increase(checkout_total{job="checkout-api",status="completed"}[6h]))
-            /
-            clamp_min(
-              sum(increase(checkout_total{job="checkout-api",status=~"completed|failed"}[6h])),
-              1
+          (
+            (
+              sum(increase(checkout_total{job="checkout-api",status=~"completed|failed"}[6h])) > 0
             )
-          )
+            * (
+              1 - (
+                sum(increase(checkout_total{job="checkout-api",status="completed"}[6h]))
+                /
+                sum(increase(checkout_total{job="checkout-api",status=~"completed|failed"}[6h]))
+              )
+            )
+          ) or vector(0)
+
+      # Error budget remaining (1h). Drop NaN via `x == x`, else full budget.
+      - record: slo:error_budget_remaining:ratio
+        labels:
+          slo: availability
+        expr: |
+          (
+            clamp(1 - (sli:http_availability:bad_ratio:1h / 0.005), 0, 1)
+            and (sli:http_availability:bad_ratio:1h == sli:http_availability:bad_ratio:1h)
+          ) or vector(1)
+
+      - record: slo:error_budget_remaining:ratio
+        labels:
+          slo: payment_latency
+        expr: |
+          (
+            clamp(1 - (sli:payment_latency:bad_ratio:1h / 0.05), 0, 1)
+            and (sli:payment_latency:bad_ratio:1h == sli:payment_latency:bad_ratio:1h)
+          ) or vector(1)
+
+      - record: slo:error_budget_remaining:ratio
+        labels:
+          slo: checkout_success
+        expr: |
+          (
+            clamp(1 - (sli:checkout_success:bad_ratio:1h / 0.001), 0, 1)
+            and (sli:checkout_success:bad_ratio:1h == sli:checkout_success:bad_ratio:1h)
+          ) or vector(1)

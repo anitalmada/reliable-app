@@ -28,7 +28,7 @@
       },
       "options": {
         "mode": "markdown",
-        "content": "## Con Alma Tech \u00b7 Reliable App\nError budget remaining (1 = full, 0 = exhausted). **Green \u2265 50% \u00b7 Yellow \u2265 20% \u00b7 Red < 20% (deploy freeze).**\nSource: `slo:error_budget_remaining:ratio` \u2014 see `SLO_DEFINITION.md`."
+        "content": "## Con Alma Tech \u00b7 Reliable App\nError budget remaining (1 = full, 0 = exhausted) over the **last 1h** of traffic. **Green \u2265 50% \u00b7 Yellow \u2265 20% \u00b7 Red < 20% (deploy freeze).**\nSource: `slo:error_budget_remaining:ratio` \u2014 see `SLO_DEFINITION.md`.\nBefore filming: `./scripts/prep-dashboards-green.sh`"
       }
     },
     {
